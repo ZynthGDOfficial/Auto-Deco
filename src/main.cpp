@@ -320,3 +320,173 @@ class $modify(AutoDecoEditorUI, EditorUI) {
         return true;
     }
 };
+class AutoDecoPopup : public geode::Popup {
+protected:
+    EditorUI* m_ui = nullptr;
+    CCLabelBMFont *m_title = nullptr, *m_desc = nullptr, *m_structSub = nullptr, *m_idxLbl = nullptr;
+    CCLayerColor *m_pBg = nullptr, *m_pGlow = nullptr, *m_pBlk1 = nullptr, *m_pBlk2 = nullptr, *m_pOut1 = nullptr, *m_pOut2 = nullptr, *m_pAcc = nullptr;
+
+    void sync() {
+        auto const& s = g_styles[g_idx];
+        g_pal = {s.bg, s.blk, s.out, s.acc, s.glow};
+        m_title->setString(s.name);
+        m_desc->setString(s.desc);
+        m_idxLbl->setString(fmt::format("{} / 20", g_idx + 1).c_str());
+
+        m_pBg->setColor(g_pal[0]);
+        m_pBlk1->setColor(g_pal[1]);
+        m_pBlk2->setColor(g_pal[1]);
+        m_pOut1->setColor(g_pal[2]);
+        m_pOut2->setColor(g_pal[2]);
+        m_pAcc->setColor(g_pal[3]);
+        m_pGlow->setColor(g_pal[4]);
+    }
+
+    bool init(EditorUI* ui) {
+        if (!Popup::init(500.f, 310.f, "GJ_square01.png")) return false;
+        m_ui = ui;
+        m_mainLayer->addChild(makeBox(ccc3(24, 25, 44), 500.f, 310.f, {250.f, 155.f}));
+
+        auto header = CCLabelBMFont::create("Auto Deco", "bigFont.fnt");
+        header->setScale(0.55f); header->setAnchorPoint({0, 0.5f}); header->setPosition({22.f, 286.f});
+        m_mainLayer->addChild(header);
+
+        auto sub = CCLabelBMFont::create("Preview a style on the section in view", "chatFont.fnt");
+        sub->setScale(0.6f); sub->setColor(ccc3(160, 170, 195)); sub->setAnchorPoint({0, 0.5f}); sub->setPosition({22.f, 268.f});
+        m_mainLayer->addChild(sub);
+
+        m_mainLayer->addChild(makeBox(ccc3(60, 64, 98), 214.f, 134.f, {129.f, 185.f}));
+        m_pBg   = makeBox(g_pal[0], 210.f, 130.f, {129.f, 185.f});
+        m_pGlow = makeBox(g_pal[4], 190.f, 45.f,  {129.f, 155.f}, 90);
+        m_pBlk1 = makeBox(g_pal[1], 210.f, 26.f,  {129.f, 133.f});
+        m_pOut1 = makeBox(g_pal[2], 210.f, 3.f,   {129.f, 146.f});
+        m_pBlk2 = makeBox(g_pal[1], 56.f,  34.f,  {178.f, 182.f});
+        m_pOut2 = makeBox(g_pal[2], 56.f,  3.f,   {178.f, 199.f});
+        m_pAcc  = makeBox(g_pal[3], 42.f,  16.f,  {178.f, 182.f});
+        m_mainLayer->addChild(m_pBg);
+        m_mainLayer->addChild(m_pGlow);
+        m_mainLayer->addChild(m_pBlk1);
+        m_mainLayer->addChild(m_pOut1);
+        m_mainLayer->addChild(m_pBlk2);
+        m_mainLayer->addChild(m_pOut2);
+        m_mainLayer->addChild(m_pAcc);
+
+        if (auto spk = CCSprite::createWithSpriteFrameName("spike_01_001.png")) {
+            spk->setScale(0.55f); spk->setPosition({82.f, 155.f}); spk->setColor(g_pal[2]);
+            m_mainLayer->addChild(spk);
+        }
+        if (auto orb = CCSprite::createWithSpriteFrameName("ring_01_001.png")) {
+            orb->setScale(0.55f); orb->setPosition({126.f, 195.f});
+            m_mainLayer->addChild(orb);
+        }
+
+        m_title = CCLabelBMFont::create("", "bigFont.fnt");
+        m_title->setScale(0.52f); m_title->setAnchorPoint({0, 0.5f}); m_title->setPosition({252.f, 232.f});
+        m_mainLayer->addChild(m_title);
+
+        m_desc = CCLabelBMFont::create("", "chatFont.fnt");
+        m_desc->setScale(0.56f); m_desc->setColor(ccc3(175, 185, 210));
+        m_desc->setAnchorPoint({0, 1.f}); m_desc->setPosition({252.f, 216.f});
+        m_desc->setWidth(225.f);
+        m_mainLayer->addChild(m_desc);
+
+        auto m = CCMenu::create(); m->setPosition({0,0}); m_mainLayer->addChild(m);
+
+        m_mainLayer->addChild(makeBox(ccc3(38, 41, 68), 226.f, 34.f, {365.f, 145.f}));
+        auto prevBtn = CCMenuItemSpriteExtra::create(ButtonSprite::create("<", 24, 0, 0.45f, true, "bigFont.fnt", "GJ_button_04.png", 26.f), this, menu_selector(AutoDecoPopup::onPrev));
+        auto nextBtn = CCMenuItemSpriteExtra::create(ButtonSprite::create(">", 24, 0, 0.45f, true, "bigFont.fnt", "GJ_button_04.png", 26.f), this, menu_selector(AutoDecoPopup::onNext));
+        prevBtn->setPosition({272.f, 145.f});
+        nextBtn->setPosition({458.f, 145.f});
+        m->addChild(prevBtn); m->addChild(nextBtn);
+
+        m_idxLbl = CCLabelBMFont::create("", "bigFont.fnt");
+        m_idxLbl->setScale(0.34f); m_idxLbl->setPosition({365.f, 145.f});
+        m_mainLayer->addChild(m_idxLbl);
+
+        auto colBtn = CCMenuItemSpriteExtra::create(makeBox(ccc3(38, 41, 68), 144.f, 42.f, {0,0}), this, menu_selector(AutoDecoPopup::onCol));
+        auto cTxt = CCLabelBMFont::create("Colours", "bigFont.fnt"); cTxt->setScale(0.35f); cTxt->setPosition({72.f, 21.f}); colBtn->addChild(cTxt);
+        colBtn->setPosition({94.f, 82.f}); m->addChild(colBtn);
+
+        auto strBtn = CCMenuItemSpriteExtra::create(makeBox(ccc3(38, 41, 68), 144.f, 42.f, {0,0}), this, menu_selector(AutoDecoPopup::onStruct));
+        auto sTxt = CCLabelBMFont::create("Structure layout", "bigFont.fnt"); sTxt->setScale(0.3f); sTxt->setPosition({72.f, 26.f}); strBtn->addChild(sTxt);
+        m_structSub = CCLabelBMFont::create("pillars and walls", "chatFont.fnt"); m_structSub->setScale(0.55f); m_structSub->setColor(ccc3(160,170,195)); m_structSub->setPosition({72.f, 13.f}); strBtn->addChild(m_structSub);
+        strBtn->setPosition({250.f, 82.f}); m->addChild(strBtn);
+
+        auto decBtn = CCMenuItemSpriteExtra::create(makeBox(ccc3(110, 108, 245), 144.f, 42.f, {0,0}), this, menu_selector(AutoDecoPopup::onUse));
+        auto dTxt = CCLabelBMFont::create("Decorate level", "bigFont.fnt"); dTxt->setScale(0.33f); dTxt->setPosition({72.f, 21.f}); decBtn->addChild(dTxt);
+        decBtn->setPosition({406.f, 82.f}); m->addChild(decBtn);
+
+        auto ver = CCLabelBMFont::create("Z Auto Deco 1.0", "chatFont.fnt");
+        ver->setScale(0.55f); ver->setColor(ccc3(120, 130, 155)); ver->setPosition({435.f, 26.f});
+        m_mainLayer->addChild(ver);
+
+        sync();
+        return true;
+    }
+
+    void onPrev(CCObject*) { g_idx = (g_idx + 19) % 20; sync(); }
+    void onNext(CCObject*) { g_idx = (g_idx + 1) % 20; sync(); }
+    void onCol(CCObject*)  { if (auto p = ColorsPopup::create()) p->show(); }
+    void onStruct(CCObject*) {
+        g_structMode = (g_structMode + 1) % 3;
+        static const char* modes[3] = {"pillars and walls", "blocks only", "heavy glow"};
+        m_structSub->setString(modes[g_structMode]);
+    }
+    void onUse(CCObject*) { auto u = m_ui; this->onClose(nullptr); decorateAll(u); }
+
+public:
+    static AutoDecoPopup* create(EditorUI* ui) {
+        auto r = new AutoDecoPopup();
+        if (r->init(ui)) { r->autorelease(); return r; }
+        delete r; return nullptr;
+    }
+};
+
+class FloatingZBtn : public CCLayer {
+protected:
+    EditorUI* m_ui = nullptr;
+    CCSprite* m_spr = nullptr;
+    CCPoint m_tStart, m_nStart;
+    bool m_drag = false;
+
+    bool init(EditorUI* ui) {
+        if (!CCLayer::init()) return false;
+        m_ui = ui; setTouchEnabled(true); setTouchMode(kCCTouchesOneByOne); setTouchPriority(-500);
+        m_spr = CCSprite::createWithSpriteFrameName("GJ_button_04.png");
+        m_spr->setScale(0.85f);
+        auto z = CCLabelBMFont::create("Z", "goldFont.fnt");
+        z->setScale(0.95f); z->setPosition(m_spr->getContentSize() / 2.f + ccp(0, 1.f));
+        m_spr->addChild(z);
+        setContentSize(m_spr->getScaledContentSize()); m_spr->setPosition(getContentSize() / 2.f); addChild(m_spr);
+        auto ws = CCDirector::sharedDirector()->getWinSize();
+        setPosition({ws.width - 145.f, ws.height - 55.f});
+        return true;
+    }
+    bool ccTouchBegan(CCTouch* t, CCEvent*) override {
+        if (!isVisible() || !CCRect(0,0,getContentSize().width,getContentSize().height).containsPoint(convertToNodeSpace(t->getLocation()))) return false;
+        m_tStart = t->getLocation(); m_nStart = getPosition(); m_drag = false; m_spr->setScale(0.78f); return true;
+    }
+    void ccTouchMoved(CCTouch* t, CCEvent*) override {
+        auto d = t->getLocation() - m_tStart;
+        if (d.getLength() > 6.f) m_drag = true;
+        if (m_drag) setPosition(m_nStart + d);
+    }
+    void ccTouchEnded(CCTouch*, CCEvent*) override {
+        m_spr->setScale(0.85f);
+        if (!m_drag) if (auto p = AutoDecoPopup::create(m_ui)) p->show();
+    }
+public:
+    static FloatingZBtn* create(EditorUI* ui) {
+        auto r = new FloatingZBtn();
+        if (r->init(ui)) { r->autorelease(); return r; }
+        delete r; return nullptr;
+    }
+};
+
+class $modify(AutoDecoEditorUI, EditorUI) {
+    bool init(LevelEditorLayer* ed) {
+        if (!EditorUI::init(ed)) return false;
+        if (auto b = FloatingZBtn::create(this)) { b->setID("auto-deco-z-btn"_spr); addChild(b, 100); }
+        return true;
+    }
+};

@@ -46,6 +46,92 @@ static const std::array<DecoStyle, 29> g_styles = {{
     {"Orbit", "Orbit", 120, "Circular motion style and smooth orbiting geometry."}
 }};
 
+class AutoDecoColorsPopup : public geode::Popup {
+protected:
+    std::array<std::string, 5> m_labels = {"Background", "Blocks", "Outline", "Accent", "Glow"};
+    std::array<ccColor3B, 5> m_currentColors = {
+        ccc3(0x05, 0x3E, 0xB8),
+        ccc3(0x06, 0x1E, 0x64),
+        ccc3(0x64, 0xED, 0xFF),
+        ccc3(0x8E, 0xCD, 0xDF),
+        ccc3(0x3C, 0xA0, 0xD1)
+    };
+
+    bool init() {
+        if (!Popup::init(420.f, 320.f, "GJ_square01.png")) {
+            return false;
+        }
+
+        this->setTitle("Colours", "goldFont.fnt", .7f, 18.f);
+
+        auto bg = CCMenu::create();
+        bg->setLayout(
+            ColumnLayout::create()
+                ->setGap(12.f)
+                ->setAxisAlignment(AxisAlignment::Center)
+                ->setCrossAxisAlignment(CrossAxisAlignment::Center)
+        );
+
+        for (size_t i = 0; i < m_labels.size(); ++i) {
+            auto row = CCNode::create();
+            row->setContentSize({ 260.f, 38.f });
+
+            auto label = Label::create(m_labels[i], "bigFont.fnt");
+            label->setScale(.42f);
+            row->addChild(label);
+
+            auto colorBox = CCNode::create();
+            colorBox->setContentSize({ 120.f, 22.f });
+            colorBox->setColor(m_currentColors[i]);
+            colorBox->setAnchorPoint({ 0.5f, 0.5f });
+            row->addChild(colorBox);
+
+            bg->addChild(row);
+        }
+
+        m_mainLayer->addChildAtPosition(bg, Anchor::Center, ccp(0, 18.f));
+
+        auto done = CCMenuItemSpriteExtra::create(
+            ButtonSprite::create("Done", 120, 0, 0.5f, true, "bigFont.fnt", "GJ_button_04.png", 30.f),
+            this,
+            menu_selector(AutoDecoColorsPopup::onDone)
+        );
+
+        auto cancel = CCMenuItemSpriteExtra::create(
+            ButtonSprite::create("Cancel", 120, 0, 0.5f, true, "bigFont.fnt", "GJ_button_04.png", 30.f),
+            this,
+            menu_selector(AutoDecoColorsPopup::onCancel)
+        );
+
+        auto buttons = CCMenu::create();
+        buttons->addChild(cancel);
+        buttons->addChild(done);
+        buttons->setLayout(RowLayout::create()->setGap(16.f));
+        m_mainLayer->addChildAtPosition(buttons, Anchor::Bottom, ccp(0, 30.f));
+
+        return true;
+    }
+
+    void onDone(CCObject*) {
+        this->onClose(nullptr);
+    }
+
+    void onCancel(CCObject*) {
+        this->onClose(nullptr);
+    }
+
+public:
+    static AutoDecoColorsPopup* create() {
+        auto ret = new AutoDecoColorsPopup();
+        if (ret->init()) {
+            ret->autorelease();
+            return ret;
+        }
+        delete ret;
+        return nullptr;
+    }
+};
+
 class AutoDecoPopup : public geode::Popup {
 protected:
     int m_selected = 0;
@@ -54,26 +140,50 @@ protected:
     Label* m_countLabel = nullptr;
 
     bool init() {
-        if (!Popup::init(520.f, 340.f, "GJ_square01.png")) {
+        if (!Popup::init(540.f, 360.f, "GJ_square01.png")) {
             return false;
         }
 
-        this->setTitle("Auto Deco", "goldFont.fnt", .8f, 20.f);
+        this->setTitle("Auto Deco", "goldFont.fnt", .8f, 18.f);
+
+        auto titleRow = CCMenu::create();
+        titleRow->setLayout(RowLayout::create()->setGap(12.f)->setAxisAlignment(AxisAlignment::Center));
 
         auto prevBtn = CCMenuItemSpriteExtra::create(
-            ButtonSprite::create("<", 18, 0, 0.35f, true, "bigFont.fnt", "GJ_button_04.png", 30.f),
+            ButtonSprite::create("<", 22, 0, 0.35f, true, "bigFont.fnt", "GJ_button_04.png", 30.f),
             this,
             menu_selector(AutoDecoPopup::onPrev)
         );
 
         auto nextBtn = CCMenuItemSpriteExtra::create(
-            ButtonSprite::create(">", 18, 0, 0.35f, true, "bigFont.fnt", "GJ_button_04.png", 30.f),
+            ButtonSprite::create(">", 22, 0, 0.35f, true, "bigFont.fnt", "GJ_button_04.png", 30.f),
             this,
             menu_selector(AutoDecoPopup::onNext)
         );
 
+        titleRow->addChild(prevBtn);
+        titleRow->addChild(nextBtn);
+        m_mainLayer->addChildAtPosition(titleRow, Anchor::Top, ccp(0, -44.f));
+
+        m_titleLabel = Label::create(g_styles[0].name, "goldFont.fnt");
+        m_titleLabel->setScale(.7f);
+        m_mainLayer->addChildAtPosition(m_titleLabel, Anchor::Top, ccp(0, -86.f));
+
+        m_descLabel = Label::create(g_styles[0].description, "bigFont.fnt");
+        m_descLabel->setScale(.36f);
+        m_descLabel->setOpacity(210);
+        m_mainLayer->addChildAtPosition(m_descLabel, Anchor::Center, ccp(0, 20.f));
+
+        m_countLabel = Label::create("Estimated objects: 138", "bigFont.fnt");
+        m_countLabel->setScale(.34f);
+        m_countLabel->setColor(ccc3(180, 215, 255));
+        m_mainLayer->addChildAtPosition(m_countLabel, Anchor::Center, ccp(0, -12.f));
+
+        auto actionMenu = CCMenu::create();
+        actionMenu->setLayout(RowLayout::create()->setGap(12.f)->setAxisAlignment(AxisAlignment::Center));
+
         auto useBtn = CCMenuItemSpriteExtra::create(
-            ButtonSprite::create("Use this style", 200, 0, 0.5f, true, "bigFont.fnt", "GJ_button_04.png", 30.f),
+            ButtonSprite::create("Use this style", 180, 0, 0.5f, true, "bigFont.fnt", "GJ_button_04.png", 30.f),
             this,
             menu_selector(AutoDecoPopup::onUse)
         );
@@ -90,33 +200,10 @@ protected:
             menu_selector(AutoDecoPopup::onCancel)
         );
 
-        auto menu = CCMenu::create();
-        menu->addChild(prevBtn);
-        menu->addChild(nextBtn);
-        menu->addChild(useBtn);
-        menu->addChild(colorBtn);
-        menu->addChild(cancelBtn);
-        menu->setLayout(
-            RowLayout::create()
-                ->setGap(12.f)
-                ->setAxisAlignment(AxisAlignment::Center)
-        );
-        m_mainLayer->addChildAtPosition(menu, Anchor::Center, ccp(0, -90.f));
-
-        m_titleLabel = Label::create("Nightmare", "goldFont.fnt");
-        m_titleLabel->setScale(.65f);
-        m_mainLayer->addChildAtPosition(m_titleLabel, Anchor::Top, ccp(0, -52.f));
-
-        m_descLabel = Label::create(g_styles[0].description, "bigFont.fnt");
-        m_descLabel->setScale(.38f);
-        m_descLabel->setColor(ccc3(235, 235, 255));
-        m_descLabel->setAnchorPoint(ccp(0.5f, 0.5f));
-        m_mainLayer->addChildAtPosition(m_descLabel, Anchor::Center, ccp(0, 18.f));
-
-        m_countLabel = Label::create("Estimated objects: 138", "bigFont.fnt");
-        m_countLabel->setScale(.33f);
-        m_countLabel->setColor(ccc3(180, 215, 255));
-        m_mainLayer->addChildAtPosition(m_countLabel, Anchor::Center, ccp(0, -18.f));
+        actionMenu->addChild(useBtn);
+        actionMenu->addChild(colorBtn);
+        actionMenu->addChild(cancelBtn);
+        m_mainLayer->addChildAtPosition(actionMenu, Anchor::Bottom, ccp(0, 28.f));
 
         this->updateStyleUI();
         return true;
@@ -124,16 +211,9 @@ protected:
 
     void updateStyleUI() {
         const auto& style = g_styles[m_selected];
-
-        if (m_titleLabel) {
-            m_titleLabel->setString(style.name);
-        }
-        if (m_descLabel) {
-            m_descLabel->setString(style.description);
-        }
-        if (m_countLabel) {
-            m_countLabel->setString(fmt::format("Estimated objects: {}", style.estimate));
-        }
+        if (m_titleLabel) m_titleLabel->setString(style.name);
+        if (m_descLabel) m_descLabel->setString(style.description);
+        if (m_countLabel) m_countLabel->setString(fmt::format("Estimated objects: {}", style.estimate));
     }
 
     void onPrev(CCObject*) {
@@ -147,12 +227,7 @@ protected:
     }
 
     void onColors(CCObject*) {
-        FLAlertLayer::create(
-            "Colours",
-            "Custom colour menu is enabled for the selected style."
-            "\nUse the style palette to set background, block, outline, accent, and glow colours.",
-            "Done"
-        )->show();
+        if (auto popup = AutoDecoColorsPopup::create()) popup->show();
     }
 
     void onUse(CCObject*) {
@@ -168,24 +243,22 @@ protected:
     void scanAndDecorate(std::string_view styleName, int estimate) {
         auto layer = LevelEditorLayer::get();
         if (!layer) {
-            log::warn("AutoDeco: no level editor present");
+            log::warn("AutoDeco: no level editor is available");
             return;
         }
 
         int total = 0;
         if (auto objLayer = layer->m_objectLayer) {
             for (auto child : CCArrayExt<CCNode*>(objLayer->getChildren())) {
-                auto obj = typeinfo_cast<GameObject*>(child);
-                if (obj) {
-                    total += 1;
+                if (typeinfo_cast<GameObject*>(child)) {
+                    total++;
                 }
             }
         }
 
-        log::info("AutoDeco style '{}' scanned {} objects, estimate {}.", styleName, total, estimate);
         FLAlertLayer::create(
             "Auto Deco",
-            fmt::format("Applied style <cy>{}</c>\nScanned {} objects in the level.", styleName, total),
+            fmt::format("Applied <cy>{}</c> style.\nScanned {} objects in this level.", styleName, total),
             "OK"
         )->show();
     }
@@ -218,19 +291,19 @@ public:
             "bigFont.fnt", "GJ_button_04.png", 30.0f
         );
 
-        auto btn = CCMenuItemSpriteExtra::create(
+        auto button = CCMenuItemSpriteExtra::create(
             btnSprite,
             this,
             menu_selector(AutoDecoEditorUI::onAutoDecoButton)
         );
 
         if (items) {
-            items->addObject(btn);
+            items->addObject(button);
             return items;
         }
 
         auto newItems = CCArray::create();
-        newItems->addObject(btn);
+        newItems->addObject(button);
         return newItems;
     }
 };

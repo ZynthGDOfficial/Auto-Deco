@@ -22,4 +22,10 @@ jobs:
       - name: Build mod
         uses: geode-sdk/build-geode-mod@main
         with:
-          platform: ${{ matrix.platform }}
+          target: ${{ matrix.platform }}
+
+      - name: Upload .geode artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Auto-Deco-${{ matrix.platform }}
+          path: "**/*.geode"

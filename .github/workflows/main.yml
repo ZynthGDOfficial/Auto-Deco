@@ -1,0 +1,42 @@
+name: Build Auto-Deco
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    env:
+      GEODE_SDK: ${{ github.workspace }}/geode-sdk
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Install build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build build-essential git
+
+      - name: Get Geode SDK
+        run: |
+          git clone --depth 1 https://github.com/geode-sdk/geode.git "$GEODE_SDK"
+
+      - name: Configure CMake
+        run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo
+
+      - name: Build project
+        run: cmake --build build --config RelWithDebInfo
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: auto-deco-geode-build
+          path: |
+            build/**/*.geode
+            build/**/output/*.geode
+            build/**/bin/*.geode

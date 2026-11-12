@@ -8,12 +8,8 @@ on:
 
 jobs:
   build:
-    name: Build (${{ matrix.platform }})
+    name: Build Mod
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        platform: [android64, android32]
 
     steps:
       - name: Checkout repository
@@ -21,11 +17,9 @@ jobs:
 
       - name: Build mod
         uses: geode-sdk/build-geode-mod@main
-        with:
-          target: ${{ matrix.platform }}
 
       - name: Upload .geode artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Auto-Deco-${{ matrix.platform }}
+          name: Auto-Deco-geode
           path: "**/*.geode"

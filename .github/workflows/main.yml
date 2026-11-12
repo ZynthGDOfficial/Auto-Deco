@@ -1,4 +1,4 @@
-name: Build Auto-Deco
+name: Build Geode Mod
 
 on:
   push:
@@ -8,47 +8,18 @@ on:
 
 jobs:
   build:
+    name: Build (${{ matrix.platform }})
     runs-on: ubuntu-latest
-
-    env:
-      GEODE_SDK: ${{ github.workspace }}/geode-sdk
-      GEODE_TARGET_PLATFORM: android
-      ANDROID_NDK_ROOT: /opt/android-ndk
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [android64, android32]
 
     steps:
-      - name: Checkout repo
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install build tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y cmake ninja-build build-essential git unzip wget
-
-      - name: Install Android NDK
-        run: |
-          wget -q https://dl.google.com/android/repository/android-ndk-r26d-linux.zip -O /tmp/android-ndk.zip
-          unzip -q /tmp/android-ndk.zip -d /tmp
-          sudo rm -rf /opt/android-ndk
-          sudo mv /tmp/android-ndk-r26d /opt/android-ndk
-
-      - name: Download Geode SDK
-        run: |
-          git clone --depth 1 https://github.com/geode-sdk/geode.git "$GEODE_SDK"
-
-      - name: Configure CMake
-        run: |
-          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-            -DGEODE_TARGET_PLATFORM=android
-
-      - name: Build project
-        run: |
-          cmake --build build --config RelWithDebInfo
-
-      - name: Upload build artifact
-        uses: actions/upload-artifact@v4
+      - name: Build mod
+        uses: geode-sdk/build-geode-mod@main
         with:
-          name: auto-deco-geode-build
-          path: |
-            build/**/*.geode
-            build/**/output/*.geode
-            build/**/bin/*.geode
+          platform: ${{ matrix.platform }}

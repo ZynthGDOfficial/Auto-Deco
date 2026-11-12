@@ -13,7 +13,7 @@ struct DecoStyle {
     const char* description;
 };
 
-static const std::array<DecoStyle, 29> g_styles = {{
+static const std::array<DecoStyle, 30> g_styles = {{
     {"Nightmare", "Nightmare", 138, "Black walls lit blood red, chains, brick in the dark."},
     {"Reactor", "Reactor", 124, "Industrial power core with glowing systems and harsh lights."},
     {"Solar", "Solar", 116, "Warm sunlight, glowing metal, and bright orange energy."},

@@ -1,1 +1,14 @@
-
+{
+  "geode": "5.11.2",
+  "gd": {
+    "win": "2.2081",
+    "android": "2.2081",
+    "mac": "2.2081",
+    "ios": "2.2081"
+  },
+  "id": "zynthgdofficial.auto-deco",
+  "name": "Auto Deco",
+  "version": "v1.0.0",
+  "developer": "ZynthGDOfficial",
+  "description": "Auto-decoration tools for the Geometry Dash level editor."
+}

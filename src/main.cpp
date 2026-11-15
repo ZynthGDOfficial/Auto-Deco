@@ -3,12 +3,19 @@
 #include <Geode/ui/Popup.hpp>
 #include <array>
 #include <vector>
+#include <cmath>
 
 using namespace geode::prelude;
 
-struct DecoStyle { const char* name; const char* desc; int d, o, g; ccColor3B bg, blk, out, acc, glow; };
+struct DecoStyle {
+    const char* name;
+    const char* desc;
+    int d, o, g;
+    ccColor3B bg, blk, out, acc, glow;
+};
 
-static const std::array<DecoStyle, 20> g_styles = {{
+static const std::array<DecoStyle, 21> g_styles = {{
+    {"Tutorial", "Video style: black outline, red fill, smoke & drips.", 211, 211, 503, ccc3(18,2,4), ccc3(170,15,28), ccc3(0,0,0), ccc3(255,45,60), ccc3(255,30,45)},
     {"Nightmare","Dark walls lit blood red & chains.",   44,211,503,ccc3(20,2,5),   ccc3(10,10,10), ccc3(255,30,56),  ccc3(153,0,26),   ccc3(255,0,34)},
     {"Lagoon",   "Cool water tones & floating neon.",    18,211,503,ccc3(5,62,184), ccc3(6,30,100), ccc3(100,237,255),ccc3(142,205,223),ccc3(60,160,209)},
     {"Reactor",  "Industrial core with harsh lights.",   18,211,503,ccc3(18,24,16), ccc3(34,42,32), ccc3(154,255,62), ccc3(88,184,40),  ccc3(120,255,32)},
@@ -31,30 +38,182 @@ static const std::array<DecoStyle, 20> g_styles = {{
     {"Toxic",    "Acid green energy & hostile neon.",    44,211,503,ccc3(10,31,8),  ccc3(6,18,5),   ccc3(56,176,0),   ccc3(112,224,0),  ccc3(158,240,26)}
 }};
 
+static constexpr int STYLE_COUNT = static_cast<int>(g_styles.size());
 static int g_idx = 0, g_mode = 0;
-static std::array<ccColor3B, 5> g_pal = {g_styles[0].bg, g_styles[0].blk, g_styles[0].out, g_styles[0].acc, g_styles[0].glow};
+static std::array<ccColor3B, 5> g_pal = {
+    g_styles.at(0).bg, g_styles.at(0).blk, g_styles.at(0).out, g_styles.at(0).acc, g_styles.at(0).glow
+};
 
 static CCLayerColor* box(ccColor3B c, float w, float h, CCPoint p, GLubyte a = 255) {
     auto b = CCLayerColor::create(ccc4(c.r, c.g, c.b, a), w, h);
-    b->ignoreAnchorPointForPosition(false); b->setAnchorPoint({0.5f, 0.5f}); b->setPosition(p); return b;
+    b->ignoreAnchorPointForPosition(false);
+    b->setAnchorPoint({0.5f, 0.5f});
+    b->setPosition(p);
+    return b;
 }
 
 static void setCh(LevelEditorLayer* ed, int ch, ccColor3B c, bool bl = false) {
-    if (ed && ed->m_levelSettings && ed->m_levelSettings->m_effectManager)
-        if (auto a = ed->m_levelSettings->m_effectManager->getColorAction(ch)) { a->m_fromColor = a->m_toColor = a->m_color = c; a->m_blending = bl; }
+    if (ed && ed->m_levelSettings && ed->m_levelSettings->m_effectManager) {
+        if (auto a = ed->m_levelSettings->m_effectManager->getColorAction(ch)) {
+            a->m_fromColor = a->m_toColor = a->m_color = c;
+            a->m_blending = bl;
+        }
+    }
+}
+
+static float hashFloat(int seed) {
+    unsigned int x = static_cast<unsigned int>(seed * 747796405u + 2891336453u);
+    x = ((x >> 16) ^ x) * 0x45d9f3b;
+    x = ((x >> 16) ^ x) * 0x45d9f3b;
+    x = (x >> 16) ^ x;
+    return static_cast<float>(x & 0xFFFF) / 65535.0f;
+}
+
+static GameObject* spawnObj(LevelEditorLayer* ed, CCArray* add, int id, CCPoint pos, ZLayer layer, int zOrder, int baseCh, int detailCh = 0, float rot = 0.f, float sx = 1.f, float sy = 1.f) {
+    auto obj = ed->createObject(id, pos, false);
+    if (!obj) return nullptr;
+    obj->setRotation(rot);
+    obj->setScaleX(sx);
+    obj->setScaleY(sy);
+    obj->m_zLayer = layer;
+    obj->m_zOrder = zOrder;
+    if (obj->m_baseColor && baseCh > 0) obj->m_baseColor->m_colorID = baseCh;
+    if (obj->m_detailColor && detailCh > 0) obj->m_detailColor->m_colorID = detailCh;
+    add->addObject(obj);
+    return obj;
+}
+static void decorateTutorialStyle(EditorUI* ui, LevelEditorLayer* ed, const std::vector<GameObject*>& lay) {
+    ccColor3B darkRed = ccc3(
+        static_cast<GLubyte>(g_pal.at(1).r * 0.5f),
+        static_cast<GLubyte>(g_pal.at(1).g * 0.5f),
+        static_cast<GLubyte>(g_pal.at(1).b * 0.5f)
+    );
+
+    setCh(ed, 1000, g_pal.at(0), false);
+    setCh(ed, 1001, ccc3(0, 0, 0), false);
+    setCh(ed, 1, g_pal.at(1), false);
+    setCh(ed, 2, g_pal.at(2), false);
+    setCh(ed, 3, g_pal.at(3), true);
+    setCh(ed, 4, ccc3(255, 255, 255), true);
+    setCh(ed, 5, darkRed, false);
+    setCh(ed, 6, ccc3(85, 85, 90), false);
+
+    auto add = CCArray::create();
+    int k = 0;
+
+    for (auto* o : lay) {
+        auto p = o->getPosition();
+        float r = o->getRotation();
+        float s = o->getScale();
+        bool haz = (o->m_objectType == GameObjectType::Hazard || o->m_objectType == GameObjectType::AnimatedHazard);
+
+        if (haz) {
+            if (o->m_baseColor) o->m_baseColor->m_colorID = 1;
+            if (o->m_detailColor) o->m_detailColor->m_colorID = 1;
+
+            spawnObj(ed, add, 503, p + ccp(0.f, -2.f * s), ZLayer::T2, 6, 3, 3, r, s * 0.9f, s * 1.15f);
+            spawnObj(ed, add, 503, p + ccp(-2.f * s, 2.f * s), ZLayer::T2, 8, 4, 4, r, s * 0.45f, s * 0.85f);
+            spawnObj(ed, add, 503, p + ccp(0.f, 4.f * s), ZLayer::T4, 12, 2, 2, r, s * 1.1f, s * 0.65f);
+            spawnObj(ed, add, 503, p, ZLayer::B1, -2, 2, 2, r, s * 1.35f, s * 1.35f);
+        } else {
+            if (o->m_baseColor) o->m_baseColor->m_colorID = 2;
+            if (o->m_detailColor) o->m_detailColor->m_colorID = 2;
+
+            spawnObj(ed, add, 211, p, ZLayer::B1, 1, 1, 1, r, s * 0.94f, s * 0.94f);
+            spawnObj(ed, add, 211, p, ZLayer::T1, 2, 2, 2, r, s, s);
+
+            float zigAngle = (k % 2 == 0) ? 35.f : -35.f;
+            float zigOffsetX = ((k % 3) - 1) * 6.f * s;
+            spawnObj(ed, add, 1753, p + ccp(zigOffsetX, 0.f), ZLayer::T2, 4, 5, 5, r + zigAngle, s * 0.75f, s * 0.75f);
+            if (g_mode != 1) {
+                spawnObj(ed, add, 503, p + ccp(zigOffsetX, 0.f), ZLayer::T2, 5, 3, 3, r + zigAngle, s * 0.55f, s * 0.55f);
+            }
+
+            float h1 = hashFloat(k * 17 + 1);
+            float h2 = hashFloat(k * 31 + 7);
+            float smokeRot = (h1 - 0.5f) * 90.f;
+            float stretchX = s * (1.1f + h2 * 0.8f);
+            float stretchY = s * (0.65f + h1 * 0.5f);
+
+            spawnObj(ed, add, 1888, p + ccp((h1 - 0.5f) * 14.f * s, -8.f * s), ZLayer::T4, 10, 6, 6, smokeRot, stretchX, stretchY);
+
+            if (k % 2 == 0) {
+                spawnObj(ed, add, 1888, p + ccp((h2 - 0.5f) * 12.f * s, -4.f * s), ZLayer::T4, 11, 2, 2, -smokeRot, stretchX * 0.85f, stretchY * 0.85f);
+            }
+
+            if (g_mode != 1) {
+                spawnObj(ed, add, 503, p + ccp(0.f, -6.f * s), ZLayer::T4, 13, 2, 2, r, s * 1.45f, s * 0.85f);
+            }
+
+            if (k % 2 == 1) {
+                float dripRot = (h2 - 0.5f) * 25.f;
+                float dripScale = s * (0.75f + h1 * 0.4f);
+                spawnObj(ed, add, 1585, p + ccp((h1 - 0.5f) * 10.f * s, -10.f * s), ZLayer::T2, 9, 3, 3, dripRot, dripScale, dripScale);
+            }
+
+            if (g_mode == 0 && (k % 3 == 0)) {
+                for (int j = 1; j <= 3; ++j) {
+                    CCPoint pilPos = p - ccp(0.f, 30.f * j * s);
+                    spawnObj(ed, add, 211, pilPos, ZLayer::B3, -5, 1, 1, 0.f, s, s);
+                    spawnObj(ed, add, 503, pilPos, ZLayer::B2, -4, 2, 2, 0.f, s * 1.2f, s * 1.2f);
+                }
+            }
+        }
+        ++k;
+    }
+
+    if (add->count() > 0) {
+        ui->selectObjects(add, true);
+        ui->updateButtons();
+    }
+    ed->updateEditorMode();
+    Notification::create(fmt::format("Decorated {} objects (Tutorial Style)!", lay.size()), NotificationIcon::Success)->show();
 }
 
 static void decorateAll(EditorUI* ui) {
     if (!ui || !ui->m_editorLayer || !ui->m_editorLayer->m_objects) return;
-    auto ed = ui->m_editorLayer; auto const& st = g_styles[g_idx];
-    setCh(ed,1000,g_pal[0]); setCh(ed,1001,g_pal[1]); setCh(ed,1,g_pal[1]); setCh(ed,2,g_pal[2],true); setCh(ed,3,g_pal[3]); setCh(ed,4,g_pal[4],true);
+    auto ed = ui->m_editorLayer;
+
     std::vector<GameObject*> lay;
-    for (auto* o : CCArrayExt<GameObject*>(ed->m_objects))
-        if (o && o->m_objectType != GameObjectType::Decoration && o->m_objectType != GameObjectType::Modifier && o->m_objectType != GameObjectType::Special) lay.push_back(o);
-    if (lay.empty()) return Notification::create("No layout found!", NotificationIcon::Warning)->show();
-    auto add = CCArray::create(); int k = 0;
+    auto selected = ui->getSelectedObjects();
+    if (selected && selected->count() > 0) {
+        for (auto* o : CCArrayExt<GameObject*>(selected)) {
+            if (o && o->m_objectType != GameObjectType::Decoration && o->m_objectType != GameObjectType::Modifier && o->m_objectType != GameObjectType::Special) {
+                lay.push_back(o);
+            }
+        }
+    }
+    if (lay.empty()) {
+        for (auto* o : CCArrayExt<GameObject*>(ed->m_objects)) {
+            if (o && o->m_objectType != GameObjectType::Decoration && o->m_objectType != GameObjectType::Modifier && o->m_objectType != GameObjectType::Special) {
+                lay.push_back(o);
+            }
+        }
+    }
+
+    if (lay.empty()) {
+        Notification::create("No layout blocks or spikes found!", NotificationIcon::Warning)->show();
+        return;
+    }
+
+    if (g_idx == 0) {
+        decorateTutorialStyle(ui, ed, lay);
+        return;
+    }
+
+    auto const& st = g_styles.at(g_idx);
+    setCh(ed, 1000, g_pal.at(0));
+    setCh(ed, 1001, g_pal.at(1));
+    setCh(ed, 1, g_pal.at(1));
+    setCh(ed, 2, g_pal.at(2), true);
+    setCh(ed, 3, g_pal.at(3));
+    setCh(ed, 4, g_pal.at(4), true);
+
+    auto add = CCArray::create();
+    int k = 0;
     for (auto* o : lay) {
-        auto p = o->getPosition(); float r = o->getRotation(), s = o->getScale();
+        auto p = o->getPosition();
+        float r = o->getRotation(), s = o->getScale();
         bool haz = (o->m_objectType == GameObjectType::Hazard || o->m_objectType == GameObjectType::AnimatedHazard);
         if (o->m_baseColor) o->m_baseColor->m_colorID = haz ? 2 : 1;
         if (o->m_detailColor) o->m_detailColor->m_colorID = haz ? 4 : 2;
@@ -74,45 +233,53 @@ static void decorateAll(EditorUI* ui) {
     Notification::create(fmt::format("Decorated {} blocks ({})!", lay.size(), st.name), NotificationIcon::Success)->show();
 }
 class ColorsPopup : public geode::Popup {
-    std::array<CCLayerColor*, 5> m_b{}; std::array<CCLabelBMFont*, 5> m_h{};
+    std::array<CCLayerColor*, 5> m_b{};
+    std::array<CCLabelBMFont*, 5> m_h{};
     bool init() override {
         if (!Popup::init(420.f, 285.f)) return false;
         m_mainLayer->addChild(box(ccc3(24,25,44), 420.f, 285.f, {210.f, 142.5f}));
         this->setTitle("Colours", "goldFont.fnt", 0.7f, 18.f);
-        static const char* nm[5] = {"Background","Blocks","Outline","Accent","Glow"};
+        static const std::array<const char*, 5> nm = {"Background","Blocks","Outline","Accent","Glow"};
         auto m = CCMenu::create(); m->setPosition({0,0}); m_mainLayer->addChild(m);
         for (int i = 0; i < 5; ++i) {
-            float y = 215.f - i * 32.f; auto c = g_pal[i];
-            auto l = CCLabelBMFont::create(nm[i], "bigFont.fnt"); l->setScale(0.34f); l->setAnchorPoint({0,0.5f}); l->setPosition({35.f, y}); m_mainLayer->addChild(l);
-            m_b[i] = CCLayerColor::create(ccc4(c.r,c.g,c.b,255), 105.f, 20.f);
-            auto bt = CCMenuItemSpriteExtra::create(m_b[i], this, menu_selector(ColorsPopup::onTap)); bt->setTag(i); bt->setPosition({235.f, y}); m->addChild(bt);
-            m_h[i] = CCLabelBMFont::create(fmt::format("{:02X}{:02X}{:02X}", c.r,c.g,c.b).c_str(), "chatFont.fnt"); m_h[i]->setScale(0.75f); m_h[i]->setPosition({345.f, y}); m_mainLayer->addChild(m_h[i]);
+            float y = 215.f - i * 32.f; auto c = g_pal.at(i);
+            auto l = CCLabelBMFont::create(nm.at(i), "bigFont.fnt"); l->setScale(0.34f); l->setAnchorPoint({0,0.5f}); l->setPosition({35.f, y}); m_mainLayer->addChild(l);
+            m_b.at(i) = CCLayerColor::create(ccc4(c.r,c.g,c.b,255), 105.f, 20.f);
+            auto bt = CCMenuItemSpriteExtra::create(m_b.at(i), this, menu_selector(ColorsPopup::onTap)); bt->setTag(i); bt->setPosition({235.f, y}); m->addChild(bt);
+            m_h.at(i) = CCLabelBMFont::create(fmt::format("{:02X}{:02X}{:02X}", c.r,c.g,c.b).c_str(), "chatFont.fnt"); m_h.at(i)->setScale(0.75f); m_h.at(i)->setPosition({345.f, y}); m_mainLayer->addChild(m_h.at(i));
         }
         auto dn = CCMenuItemSpriteExtra::create(box(ccc3(110,108,245), 130.f, 26.f, {0,0}), this, menu_selector(ColorsPopup::onDn));
         auto dl = CCLabelBMFont::create("Done", "bigFont.fnt"); dl->setScale(0.34f); dl->setPosition({65.f, 13.f}); dn->addChild(dl); dn->setPosition({210.f, 26.f}); m->addChild(dn);
         return true;
     }
-    void onTap(CCObject* s) { int i = s->getTag(); auto& c = g_pal[i]; c = ccc3((c.r+32)%255,(c.g+22)%255,(c.b+42)%255); m_b[i]->setColor(c); m_h[i]->setString(fmt::format("{:02X}{:02X}{:02X}",c.r,c.g,c.b).c_str()); }
+    void onTap(CCObject* s) {
+        int i = s->getTag();
+        auto& c = g_pal.at(i);
+        c = ccc3((c.r+32)%255,(c.g+22)%255,(c.b+42)%255);
+        m_b.at(i)->setColor(c);
+        m_h.at(i)->setString(fmt::format("{:02X}{:02X}{:02X}",c.r,c.g,c.b).c_str());
+    }
     void onDn(CCObject*) { this->onClose(nullptr); }
 public:
     static ColorsPopup* create() { auto r = new ColorsPopup(); if (r->init()) { r->autorelease(); return r; } delete r; return nullptr; }
 };
 
 class AutoDecoPopup : public geode::Popup {
-    EditorUI* m_ui = nullptr; CCLabelBMFont *m_t = nullptr, *m_d = nullptr, *m_s = nullptr, *m_i = nullptr;
+    EditorUI* m_ui = nullptr;
+    CCLabelBMFont *m_t = nullptr, *m_d = nullptr, *m_s = nullptr, *m_i = nullptr;
     CCLayerColor *pBg = nullptr, *pGl = nullptr, *pB1 = nullptr, *pB2 = nullptr, *pO1 = nullptr, *pO2 = nullptr, *pAc = nullptr;
     void sync() {
-        auto const& s = g_styles[g_idx]; g_pal = {s.bg, s.blk, s.out, s.acc, s.glow};
-        m_t->setString(s.name); m_d->setString(s.desc); m_i->setString(fmt::format("{} / 20", g_idx + 1).c_str());
-        pBg->setColor(g_pal[0]); pB1->setColor(g_pal[1]); pB2->setColor(g_pal[1]); pO1->setColor(g_pal[2]); pO2->setColor(g_pal[2]); pAc->setColor(g_pal[3]); pGl->setColor(g_pal[4]);
+        auto const& s = g_styles.at(g_idx); g_pal = {s.bg, s.blk, s.out, s.acc, s.glow};
+        m_t->setString(s.name); m_d->setString(s.desc); m_i->setString(fmt::format("{} / {}", g_idx + 1, STYLE_COUNT).c_str());
+        pBg->setColor(g_pal.at(0)); pB1->setColor(g_pal.at(1)); pB2->setColor(g_pal.at(1)); pO1->setColor(g_pal.at(2)); pO2->setColor(g_pal.at(2)); pAc->setColor(g_pal.at(3)); pGl->setColor(g_pal.at(4));
     }
     bool init(EditorUI* ui) {
         if (!Popup::init(490.f, 300.f)) return false;
         m_ui = ui; m_mainLayer->addChild(box(ccc3(24,25,44), 490.f, 300.f, {245.f, 150.f}));
         auto hd = CCLabelBMFont::create("Auto Deco", "bigFont.fnt"); hd->setScale(0.55f); hd->setAnchorPoint({0,0.5f}); hd->setPosition({22.f, 276.f}); m_mainLayer->addChild(hd);
-        pBg = box(g_pal[0],205.f,125.f,{126.f,180.f}); pGl = box(g_pal[4],185.f,42.f,{126.f,150.f},90);
-        pB1 = box(g_pal[1],205.f,24.f,{126.f,130.f}); pO1 = box(g_pal[2],205.f,3.f,{126.f,142.f});
-        pB2 = box(g_pal[1],54.f,32.f,{174.f,178.f});  pO2 = box(g_pal[2],54.f,3.f,{174.f,194.f}); pAc = box(g_pal[3],40.f,14.f,{174.f,178.f});
+        pBg = box(g_pal.at(0),205.f,125.f,{126.f,180.f}); pGl = box(g_pal.at(4),185.f,42.f,{126.f,150.f},90);
+        pB1 = box(g_pal.at(1),205.f,24.f,{126.f,130.f}); pO1 = box(g_pal.at(2),205.f,3.f,{126.f,142.f});
+        pB2 = box(g_pal.at(1),54.f,32.f,{174.f,178.f});  pO2 = box(g_pal.at(2),54.f,3.f,{174.f,194.f}); pAc = box(g_pal.at(3),40.f,14.f,{174.f,178.f});
         m_mainLayer->addChild(pBg); m_mainLayer->addChild(pGl); m_mainLayer->addChild(pB1); m_mainLayer->addChild(pO1); m_mainLayer->addChild(pB2); m_mainLayer->addChild(pO2); m_mainLayer->addChild(pAc);
         m_t = CCLabelBMFont::create("", "bigFont.fnt"); m_t->setScale(0.5f); m_t->setAnchorPoint({0,0.5f}); m_t->setPosition({246.f, 226.f}); m_mainLayer->addChild(m_t);
         m_d = CCLabelBMFont::create("", "chatFont.fnt"); m_d->setScale(0.55f); m_d->setColor(ccc3(175,185,210)); m_d->setAnchorPoint({0,1.f}); m_d->setPosition({246.f, 210.f}); m_d->setWidth(220.f); m_mainLayer->addChild(m_d);
@@ -125,10 +292,14 @@ class AutoDecoPopup : public geode::Popup {
         auto db = CCMenuItemSpriteExtra::create(box(ccc3(110,108,245),140.f,40.f,{0,0}),this,menu_selector(AutoDecoPopup::onGo)); auto dt = CCLabelBMFont::create("Decorate level","bigFont.fnt"); dt->setScale(0.31f); dt->setPosition({70.f,20.f}); db->addChild(dt); db->setPosition({398.f,80.f}); m->addChild(db);
         sync(); return true;
     }
-    void onPv(CCObject*) { g_idx = (g_idx + 19) % 20; sync(); }
-    void onNx(CCObject*) { g_idx = (g_idx + 1) % 20; sync(); }
+    void onPv(CCObject*) { g_idx = (g_idx + STYLE_COUNT - 1) % STYLE_COUNT; sync(); }
+    void onNx(CCObject*) { g_idx = (g_idx + 1) % STYLE_COUNT; sync(); }
     void onCl(CCObject*) { if (auto p = ColorsPopup::create()) p->show(); }
-    void onSt(CCObject*) { g_mode = (g_mode + 1) % 3; static const char* md[3] = {"pillars","blocks only","heavy glow"}; m_s->setString(md[g_mode]); }
+    void onSt(CCObject*) {
+        g_mode = (g_mode + 1) % 3;
+        static const std::array<const char*, 3> md = {"pillars","blocks only","heavy glow"};
+        m_s->setString(md.at(g_mode));
+    }
     void onGo(CCObject*) { auto u = m_ui; this->onClose(nullptr); decorateAll(u); }
 public:
     static AutoDecoPopup* create(EditorUI* u) { auto r = new AutoDecoPopup(); if (r->init(u)) { r->autorelease(); return r; } delete r; return nullptr; }

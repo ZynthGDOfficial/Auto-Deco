@@ -96,7 +96,7 @@ static void decorateTutorialStyle(EditorUI* ui, LevelEditorLayer* ed, const std:
     setCh(ed, 3, g_pal.at(3), true);
     setCh(ed, 4, ccc3(255, 255, 255), true);
     setCh(ed, 5, darkRed, false);
-    setCh(ed, 6, ccc3(85, 85, 90), false);
+    setCh(ed, 6, ccc3(70, 70, 75), true);
 
     auto add = CCArray::create();
     int k = 0;
@@ -106,56 +106,57 @@ static void decorateTutorialStyle(EditorUI* ui, LevelEditorLayer* ed, const std:
         float r = o->getRotation();
         float s = o->getScale();
         bool haz = (o->m_objectType == GameObjectType::Hazard || o->m_objectType == GameObjectType::AnimatedHazard);
+        bool isSlope = (o->m_objectType == GameObjectType::Slope);
 
         if (haz) {
+            // Spikes & saws: red base/detail + subtle inner highlight + clean black shadow behind
             if (o->m_baseColor) o->m_baseColor->m_colorID = 1;
             if (o->m_detailColor) o->m_detailColor->m_colorID = 1;
 
-            spawnObj(ed, add, 503, p + ccp(0.f, -2.f * s), ZLayer::T2, 6, 3, 3, r, s * 0.9f, s * 1.15f);
-            spawnObj(ed, add, 503, p + ccp(-2.f * s, 2.f * s), ZLayer::T2, 8, 4, 4, r, s * 0.45f, s * 0.85f);
-            spawnObj(ed, add, 503, p + ccp(0.f, 4.f * s), ZLayer::T4, 12, 2, 2, r, s * 1.1f, s * 0.65f);
-            spawnObj(ed, add, 503, p, ZLayer::B1, -2, 2, 2, r, s * 1.35f, s * 1.35f);
+            spawnObj(ed, add, 1764, p, ZLayer::T2, 6, 3, 3, r, s * 0.45f, s * 0.45f);
+            spawnObj(ed, add, 1764, p, ZLayer::B1, -2, 2, 2, r, s * 0.7f, s * 0.7f);
+        } else if (isSlope) {
+            // Slopes (wave corridors): color outline black & add subtle red edge glow—NO square blocks!
+            if (o->m_baseColor) o->m_baseColor->m_colorID = 2;
+            if (o->m_detailColor) o->m_detailColor->m_colorID = 1;
+
+            if (k % 2 == 0) {
+                spawnObj(ed, add, 1764, p, ZLayer::B1, -1, 3, 3, r, s * 0.55f, s * 0.55f);
+            }
+            if (k % 5 == 0) {
+                float h1 = hashFloat(k * 17 + 1);
+                spawnObj(ed, add, 1764, p + ccp((h1 - 0.5f) * 8.f * s, -4.f * s), ZLayer::T4, 10, 6, 6, 0.f, s * 0.65f, s * 0.45f);
+            }
         } else {
+            // Regular square blocks: black outline + red inner fill + sparse soft smoke & drips
             if (o->m_baseColor) o->m_baseColor->m_colorID = 2;
             if (o->m_detailColor) o->m_detailColor->m_colorID = 2;
 
-            spawnObj(ed, add, 211, p, ZLayer::B1, 1, 1, 1, r, s * 0.94f, s * 0.94f);
-            spawnObj(ed, add, 211, p, ZLayer::T1, 2, 2, 2, r, s, s);
-
-            float zigAngle = (k % 2 == 0) ? 35.f : -35.f;
-            float zigOffsetX = ((k % 3) - 1) * 6.f * s;
-            spawnObj(ed, add, 1753, p + ccp(zigOffsetX, 0.f), ZLayer::T2, 4, 5, 5, r + zigAngle, s * 0.75f, s * 0.75f);
-            if (g_mode != 1) {
-                spawnObj(ed, add, 503, p + ccp(zigOffsetX, 0.f), ZLayer::T2, 5, 3, 3, r + zigAngle, s * 0.55f, s * 0.55f);
-            }
+            spawnObj(ed, add, 211, p, ZLayer::B1, 1, 1, 1, r, s * 0.92f, s * 0.92f);
 
             float h1 = hashFloat(k * 17 + 1);
             float h2 = hashFloat(k * 31 + 7);
-            float smokeRot = (h1 - 0.5f) * 90.f;
-            float stretchX = s * (1.1f + h2 * 0.8f);
-            float stretchY = s * (0.65f + h1 * 0.5f);
 
-            spawnObj(ed, add, 1888, p + ccp((h1 - 0.5f) * 14.f * s, -8.f * s), ZLayer::T4, 10, 6, 6, smokeRot, stretchX, stretchY);
-
+            // Subtle zigzag line on every 2nd block
             if (k % 2 == 0) {
-                spawnObj(ed, add, 1888, p + ccp((h2 - 0.5f) * 12.f * s, -4.f * s), ZLayer::T4, 11, 2, 2, -smokeRot, stretchX * 0.85f, stretchY * 0.85f);
+                float zigAngle = (k % 4 == 0) ? 35.f : -35.f;
+                spawnObj(ed, add, 1753, p, ZLayer::T2, 4, 5, 5, r + zigAngle, s * 0.65f, s * 0.65f);
             }
 
-            if (g_mode != 1) {
-                spawnObj(ed, add, 503, p + ccp(0.f, -6.f * s), ZLayer::T4, 13, 2, 2, r, s * 1.45f, s * 0.85f);
+            // Soft circular glow smoke (ID 1764, NOT square 1888) on every 3rd block
+            if (k % 3 == 0) {
+                spawnObj(ed, add, 1764, p + ccp((h1 - 0.5f) * 10.f * s, -6.f * s), ZLayer::T4, 10, 6, 6, 0.f, s * 0.75f, s * 0.5f);
             }
 
-            if (k % 2 == 1) {
-                float dripRot = (h2 - 0.5f) * 25.f;
-                float dripScale = s * (0.75f + h1 * 0.4f);
-                spawnObj(ed, add, 1585, p + ccp((h1 - 0.5f) * 10.f * s, -10.f * s), ZLayer::T2, 9, 3, 3, dripRot, dripScale, dripScale);
+            // Sparse drip accent on every 4th block
+            if (k % 4 == 1) {
+                spawnObj(ed, add, 1585, p + ccp((h2 - 0.5f) * 8.f * s, -8.f * s), ZLayer::T2, 9, 3, 3, 0.f, s * 0.65f, s * 0.65f);
             }
 
-            if (g_mode == 0 && (k % 3 == 0)) {
-                for (int j = 1; j <= 3; ++j) {
+            if (g_mode == 0 && (k % 4 == 0)) {
+                for (int j = 1; j <= 2; ++j) {
                     CCPoint pilPos = p - ccp(0.f, 30.f * j * s);
                     spawnObj(ed, add, 211, pilPos, ZLayer::B3, -5, 1, 1, 0.f, s, s);
-                    spawnObj(ed, add, 503, pilPos, ZLayer::B2, -4, 2, 2, 0.f, s * 1.2f, s * 1.2f);
                 }
             }
         }
@@ -167,7 +168,7 @@ static void decorateTutorialStyle(EditorUI* ui, LevelEditorLayer* ed, const std:
         ui->updateButtons();
     }
     ed->updateEditorMode();
-    Notification::create(fmt::format("Decorated {} objects (Tutorial Style)!", lay.size()), NotificationIcon::Success)->show();
+    Notification::create(fmt::format("Decorated {} objects cleanly!", lay.size()), NotificationIcon::Success)->show();
 }
 
 static void decorateAll(EditorUI* ui) {
@@ -215,17 +216,18 @@ static void decorateAll(EditorUI* ui) {
         auto p = o->getPosition();
         float r = o->getRotation(), s = o->getScale();
         bool haz = (o->m_objectType == GameObjectType::Hazard || o->m_objectType == GameObjectType::AnimatedHazard);
+        bool isSlope = (o->m_objectType == GameObjectType::Slope);
         if (o->m_baseColor) o->m_baseColor->m_colorID = haz ? 2 : 1;
         if (o->m_detailColor) o->m_detailColor->m_colorID = haz ? 4 : 2;
-        if (!haz) {
+        if (!haz && !isSlope) {
             if (auto d = ed->createObject(st.d, p, false)) { d->setRotation(r); d->setScale(s); d->m_zLayer = ZLayer::B1; d->m_zOrder = 2; if (d->m_baseColor) d->m_baseColor->m_colorID = 3; add->addObject(d); }
             if (auto out = ed->createObject(st.o, p, false)) { out->setRotation(r); out->setScale(s); out->m_zLayer = ZLayer::T1; out->m_zOrder = 5; if (out->m_baseColor) out->m_baseColor->m_colorID = 2; add->addObject(out); }
             if (g_mode == 0 && (k % 3 == 0))
                 for (int j = 1; j <= 3; ++j)
                     if (auto pil = ed->createObject(st.d, p - ccp(0, 30.f * j * s), false)) { pil->setScale(s); pil->m_zLayer = ZLayer::B3; pil->m_zOrder = -5; if (pil->m_baseColor) pil->m_baseColor->m_colorID = 1; add->addObject(pil); }
         }
-        if (g_mode != 1)
-            if (auto gl = ed->createObject(st.g, p, false)) { gl->setRotation(r); gl->m_zLayer = ZLayer::T2; gl->m_zOrder = 10; gl->setScale(s * (g_mode == 2 ? 1.4f : 1.15f)); if (gl->m_baseColor) gl->m_baseColor->m_colorID = 4; add->addObject(gl); }
+        if (g_mode != 1 && (k % 2 == 0))
+            if (auto gl = ed->createObject(1764, p, false)) { gl->setRotation(r); gl->m_zLayer = ZLayer::T2; gl->m_zOrder = 10; gl->setScale(s * 0.55f); if (gl->m_baseColor) gl->m_baseColor->m_colorID = 4; add->addObject(gl); }
         ++k;
     }
     if (add->count() > 0) { ui->selectObjects(add, true); ui->updateButtons(); }
